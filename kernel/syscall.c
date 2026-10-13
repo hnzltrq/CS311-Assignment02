@@ -101,6 +101,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_interpose(void); 
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +127,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_interpose] sys_interpose,
 };
 
 void
@@ -136,8 +138,34 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    // Use num to lookup the system call function for num, call it,
-    // and store its return value in p->trapframe->a0
+    
+    // --- SANDBOX CHECK WITH PATH EXCEPTION ---
+    if (p->mask & (1 << num)) {
+      int allow = 0;
+      
+      // If the blocked call is open or exec, check the path!
+      if (num == SYS_open || num == SYS_exec) {
+        char target_path[MAXPATH];
+        
+        // The file path is always the 0th argument (register a0) for both open and exec.
+        // We fetch the string they are trying to access:
+        if (fetchstr(p->trapframe->a0, target_path, MAXPATH) >= 0) {
+          
+          // If it matches our allowed path exactly, grant an exception
+          if (strncmp(target_path, p->allowed_path, MAXPATH) == 0) {
+            allow = 1;
+          }
+        }
+      }
+
+      // If it wasn't open/exec, OR the path didn't match, block it.
+      if (!allow) {
+        p->trapframe->a0 = -1;
+        return;
+      }
+    }
+    // -----------------------------------------
+
     p->trapframe->a0 = syscalls[num]();
   } else {
     printf("%d %s: unknown sys call %d\n",

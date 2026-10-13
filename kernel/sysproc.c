@@ -105,3 +105,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_interpose(void)
+{
+  int mask;
+  
+  // 1. Fetch the integer mask
+  argint(0, &mask);
+  
+  // 2. Fetch the string (argument 1). If it fails to read, return error.
+  if (argstr(1, myproc()->allowed_path, MAXPATH) < 0) {
+    return -1;
+  }
+  
+  // 3. Save the mask
+  myproc()->mask = mask;
+  
+  return 0;
+}

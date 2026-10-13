@@ -168,6 +168,8 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->mask = 0;
+  p->allowed_path[0] = 0; 
   p->state = UNUSED;
 }
 
@@ -284,6 +286,9 @@ kfork(void)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
+
+  np->mask = p->mask;
+  safestrcpy(np->allowed_path, p->allowed_path, MAXPATH); 
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
