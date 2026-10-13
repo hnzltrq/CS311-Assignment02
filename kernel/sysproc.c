@@ -105,3 +105,17 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_interpose(void)
+{
+  int mask;
+  
+  // Just fetch the integer. It returns void because reading a register cannot fail.
+  argint(0, &mask);
+    
+  // Save the mask to the current running process
+  myproc()->mask = mask;
+  
+  return 0; // Success!
+}
